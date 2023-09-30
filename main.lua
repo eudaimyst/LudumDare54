@@ -13,6 +13,7 @@ local sSub = string.sub
 ---@diagnostic disable-next-line: undefined-field --this is defined by solar2d math library not recognised
 local mRound = math.round
 local mRand = math.random
+local mAtan2 = math.atan2
 local pi = math.pi
 print(pi)
 
@@ -168,10 +169,9 @@ local function debugDraw() --for testing layout sizes and positions
 end
 
 
-local _point --recycled point references
+local _point, _button --recycled
 
 local function iterateCircleForShape()
-	local circleStepAngle = 5
 
 	local function getDistance(x1, y1, x2, y2)
 		local xDist = x2 - x1
@@ -195,11 +195,20 @@ local function iterateCircleForShape()
 		end
 		return nil
 	end
-
-	for i = 1, math.floor(360/circleStepAngle) do
-		--iterate around the circle in steps of circleStepAngle
+	
+	local angles = {}
+	for i = 1, #keyButtons do
+		_button = keyButtons[i]
+		if _button.toggled == true then
+			print(_button.letter.." = ".._button.angle)
+			angles[#angles+1] = _button.angle
+		end
+	end
+	table.sort(angles)
+	for i = 1, #angles do
+		local angle = angles[i]
 		local radius = layoutMaxRadius + 100
-		local angle = circleStepAngle * i
+		--local angle = circleStepAngle * i
 		local x = radius * math.cos(math.rad(angle)) + display.contentWidth/2
 		local y = radius * math.sin(math.rad(angle)) + display.contentHeight/2
 		--get distance from x, y to each key boundary point
@@ -264,8 +273,8 @@ local function updateBoundaryPointDisplay() --visualises boundary points
 		shapeVertices[#shapeVertices+1] = shapePoints[i].x
 		shapeVertices[#shapeVertices+1] = shapePoints[i].y
 	end
-	print("midPointX, midPointY: "..midPointX, midPointY, "shape points: ")
-	print(json.prettify(shapePoints))
+	--print("midPointX, midPointY: "..midPointX, midPointY, "shape points: ")
+	--print(json.prettify(shapePoints))
 	if boundaryShape then
 		boundaryShape:removeSelf()
 		boundaryShape = nil
@@ -283,6 +292,7 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		button.letter = letter
 		button.x = x
 		button.y = y
+		button.angle = mAtan2(y, x ) * 180 / pi -- get the angle between the circle midPoint and the button, used for calculating boundary points
 		button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
 		html5fix(button.textRect)
 
