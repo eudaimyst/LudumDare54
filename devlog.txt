@@ -2,7 +2,7 @@ game concept:
 Players submit words using characters on screen that fit within the limited space
 As a word is submitted a new boundary is drawn using the letters that made the word thus reducing the available number of words remaining
 
-
+11: this is harder than it should be, hitting errors in logic every step along the way, kind of can see something working but a long way to go
 10:	added the boundary points for each key, took a good hour or so because of annoyances with solar2d's contentBounds using the parent groups offsets
 	next step will making a shape based off those points, I plan to iterate around the circle and find the nearest point, then add them to a list to build the shape
 9:	just added a quick offset fix for text on html5 (known solar2d issue) thanks to @Siu in their discord

@@ -167,9 +167,74 @@ local function debugDraw() --for testing layout sizes and positions
 	drawCircles()
 end
 
+
 local _point --recycled point references
+
+local function iterateCircleForShape()
+	local circleStepAngle = 5
+
+	local function getDistance(x1, y1, x2, y2)
+		local xDist = x2 - x1
+		local yDist = y2 - y1
+		local distance = math.sqrt((xDist * xDist) + (yDist * yDist))
+		return distance
+	end
+
+	local nearestPoints = {} -- stores points that are nearest to the circles edge
+	local function isAlreadyANearestPoint(point)
+		print("checking if point is already a nearest point --- nearestPoints: "..#nearestPoints)
+		if #nearestPoints > 0 then
+			--print(json.prettify(nearestPoints))
+			for i = 1, #nearestPoints do
+				local checkPoint = nearestPoints[i]
+				--print("comparing point: "..point.x, point.y.." to checkPoint: "..checkPoint.x, checkPoint.y)
+				if checkPoint.x == point.x and checkPoint.y == point.y then
+					return true
+				end
+			end
+		end
+		return nil
+	end
+
+	for i = 1, math.floor(360/circleStepAngle) do
+		--iterate around the circle in steps of circleStepAngle
+		local radius = layoutMaxRadius + 100
+		local angle = circleStepAngle * i
+		local x = radius * math.cos(math.rad(angle)) + display.contentWidth/2
+		local y = radius * math.sin(math.rad(angle)) + display.contentHeight/2
+		--get distance from x, y to each key boundary point
+		local _nearestDistance = 1000000
+		print(x,y)
+		display.newCircle(sceneGroup, x, y, 5)
+		for i2 = 1, #boundaryPointObjects do
+			_point = boundaryPointObjects[i2]
+			--print("checking circle iteration point: "..x, y.." against key boundary point: ".._point.x, _point.y)
+			local _distance = getDistance(x, y, _point.x, _point.y)
+			--print("distance: ".._distance)
+			if _distance < _nearestDistance then
+				print("found nearest distance")
+				_nearestDistance = _distance
+				if not isAlreadyANearestPoint(_point) then
+					print("adding point: ".. _point.x, _point.y, "to nearest points")
+					nearestPoints[#nearestPoints+1] = _point
+					print(json.prettify(nearestPoints))
+				end
+			end
+		end
+	end
+	local xTotal, yTotal, midPointX, midPointY = 0, 0, 0, 0
+	for i = 1, #nearestPoints do
+		xTotal = xTotal + nearestPoints[i].x
+		yTotal = yTotal + nearestPoints[i].y
+	end
+	midPointX = xTotal / #nearestPoints
+	midPointY = yTotal / #nearestPoints
+	return nearestPoints, midPointX, midPointY
+end
+
+local boundaryShape = nil
 local function updateBoundaryPointDisplay() --visualises boundary points
-	print("drawing boundary points")
+	--print("drawing boundary points")
 	for i = 1, #boundaryPointObjects do
 		_point = boundaryPointObjects[i]
 		if _point.displayObject then
@@ -181,8 +246,8 @@ local function updateBoundaryPointDisplay() --visualises boundary points
 		local button = keyButtons[i]
 		if button.toggled == true then
 			for i2 = 1, 4 do
-				print(#button.boundaryPoints)
-				print("drawing boundary point: "..i2.." for key: "..button.letter)
+				--print(#button.boundaryPoints)
+				--print("drawing boundary point: "..i2.." for key: "..button.letter)
 				local point = { x = button.boundaryPoints[i2].x, y = button.boundaryPoints[i2].y}
 				if drawBoundaryPoints == true then
 					local displayObject = display.newCircle(boundaryPointGroup, point.x, point.y, 1)
@@ -193,6 +258,20 @@ local function updateBoundaryPointDisplay() --visualises boundary points
 			end
 		end
 	end
+	local shapePoints, midPointX, midPointY = iterateCircleForShape()
+	local shapeVertices = {}
+	for i = 1, #shapePoints do
+		shapeVertices[#shapeVertices+1] = shapePoints[i].x
+		shapeVertices[#shapeVertices+1] = shapePoints[i].y
+	end
+	print("midPointX, midPointY: "..midPointX, midPointY, "shape points: ")
+	print(json.prettify(shapePoints))
+	if boundaryShape then
+		boundaryShape:removeSelf()
+		boundaryShape = nil
+	end
+	boundaryShape = display.newPolygon(boundaryPointGroup, midPointX, midPointY, shapeVertices)
+	boundaryShape:setFillColor(0,1,0,.5)
 end
 
 local function drawKeys(randomLetters) --draw display objects representing keys
@@ -208,24 +287,26 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		html5fix(button.textRect)
 
 		button.boundaryPoints = {}
-		print(json.prettify(button.contentBounds))
+		--print(json.prettify(button.contentBounds))
 		for i = 1, 4 do
-			print(boundaryPointBoundKeys[i][1], boundaryPointBoundKeys[i][2])
+			--print(boundaryPointBoundKeys[i][1], boundaryPointBoundKeys[i][2])
 			local _x, _y = sceneGroup:localToContent( button.contentBounds[boundaryPointBoundKeys[i][1]], button.contentBounds[boundaryPointBoundKeys[i][2]] )
-			print("adding boundary point "..i.." for key: "..button.letter.." at pos: ".._x, _y)
+			--print("adding boundary point "..i.." for key: "..button.letter.." at pos: ".._x, _y)
 			button.boundaryPoints[i] = { x = _x, y = _y }
 		end
 
 		keyGroup:insert(button.textRect)
 		
-		function button:added()
+		function button:addedToWord() --called from key event or when button is pressed
+			wordString = wordString..self.letter
+			wordDisplayBox:updateText()
 			button:setFillColor(.8)
 			button.textRect:setFillColor(0)
 			button.toggled = true
 			updateBoundaryPointDisplay()
 		end
 
-		function button:removed()
+		function button:removedFromWord()
 			local letterInWord = false
 			for i = 1, sLen(wordString) do
 				if sSub(wordString, i, i) == button.letter then
@@ -323,14 +404,12 @@ local function onKeyEvent(event)
 	if event.phase == "down" then
     	--print(event.keyName)
 		if checkLetterTable(event.keyName) then
-			keyEventTable[event.keyName]:added() --call function to update key display
-			wordString = wordString..event.keyName
-			wordDisplayBox:updateText()
+			keyEventTable[event.keyName]:addedToWord() --call function to update key display
 		elseif event.keyName == "deleteBack" then
 			local deletedLetter = sSub(wordString, sLen(wordString), sLen(wordString))
 			if sLen (wordString) > 0 then
 				wordString = sSub(wordString, 1, sLen(wordString) - 1)
-				keyEventTable[deletedLetter]:removed() --call function to update key display, called after wordString updated for checking
+				keyEventTable[deletedLetter]:removedFromWord() --call function to update key display, called after wordString updated for checking
 				wordDisplayBox:updateText()
 			end
 		end
