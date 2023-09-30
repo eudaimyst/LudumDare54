@@ -194,14 +194,14 @@ local function iterateCircleForShape()
 			for i = 1, #nearestPoints do
 				local checkPoint = nearestPoints[i]
 				local xa, xb, ya, yb = mFloor(checkPoint.x), mFloor(point.x), mFloor(checkPoint.y), mFloor(point.y)
-				print("comparing point: "..xa, ya.." to checkPoint: "..xb, yb)
+				--print("comparing point: "..xa, ya.." to checkPoint: "..xb, yb)
 				if xa == xb and ya == yb then
-					print("return true")
+					--print("return true")
 					return true
 				end
 			end
 		end
-		print("returning false")
+		--print("returning false")
 		return nil
 	end
 	print("boundary points: "..#boundaryPointObjects)
@@ -273,9 +273,29 @@ local function iterateCircleForShape()
 end
 
 local boundaryShape
+
+local function clearBoundaryPointDisplay() --clears boundary points, called when word is submitted
+	for i = 1, #debugLines do
+		debugLines[i]:removeSelf()
+		debugLines[i] = nil
+	end
+	for i = 1, #boundaryPointObjects do
+		_point = boundaryPointObjects[i]
+		if _point.displayObject then
+			_point.displayObject:removeSelf()
+			_point.displayObject = nil
+		end
+		boundaryPointObjects[i] = nil
+	end
+	if boundaryShape then
+		boundaryShape:removeSelf()
+		boundaryShape = nil
+	end
+end
+
 local function updateBoundaryPointDisplay() --visualises boundary points
 	print("-----------updating boundary point display-----------")
-	print(#debugLines)
+	print("debugLines: "..#debugLines)
 	for i = 1, #debugLines do
 		debugLines[i]:removeSelf()
 		debugLines[i] = nil
@@ -438,6 +458,36 @@ drawUI()
 loadWords()
 print("word count: "..#words)
 
+
+local function removeWordsOutsideBoundary() --called when word is submitted
+	local function colorSampleResult(event)
+		
+	end
+	for i = 1, #keyButtons do
+		local button = keyButtons[i]
+		display.colorSample( button:localToContent(0, 0), colorSampleResult )
+	end
+end
+
+local function submitWord()
+	local wordFound = false
+	for i = 1, #words do
+		if words[i] == wordString then
+			wordFound = true
+		end
+	end
+	if wordFound then
+		print("word found")
+		wordString = ""
+		wordDisplayBox:updateText()
+		removeWordsOutsideBoundary()
+		clearBoundaryPointDisplay()
+		updateBoundaryPointDisplay()
+	else
+		print("word not found")
+	end
+end
+
 local function onKeyEvent(event)
 
 	local function checkLetterTable(letter)
@@ -460,6 +510,9 @@ local function onKeyEvent(event)
 				keyEventTable[deletedLetter]:removedFromWord() --call function to update key display, called after wordString updated for checking
 				wordDisplayBox:updateText()
 			end
+		elseif event.keyName == "enter" then
+			print("enter pressed")
+			submitWord()
 		end
 	end
 end
