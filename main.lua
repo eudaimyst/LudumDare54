@@ -16,7 +16,11 @@ print(pi)
 
 local sceneGroup = display.newGroup()
 local keyGroup = display.newGroup()
+keyGroup.anchorChildren = true
+local uiGroup = display.newGroup()
+uiGroup.anchorChildren = true
 sceneGroup:insert(keyGroup)
+sceneGroup:insert(uiGroup)
 
 local letters = "abcdefghijklmnopqrstuvwxyz"
 local letterTable = {}
@@ -113,6 +117,24 @@ local function drawKeys() --draw display objects representing keys
 	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentCenterY / 5
 end
 
+local function drawUI()
+	local displayButtonHeight = 40
+	local buttonOffset = 20
+	local wordDisplayWidth = 300
+	local submitButtonWidth = 130
+	local wordDisplay = display.newRoundedRect(uiGroup,0,0,wordDisplayWidth,displayButtonHeight,12)
+	wordDisplay:setFillColor(.2)
+	wordDisplay.strokeWidth = 3
+	wordDisplay:setStrokeColor(1)
+	local submitButton = display.newRoundedRect(uiGroup,wordDisplayWidth/2 + submitButtonWidth/2 + buttonOffset,0,submitButtonWidth,displayButtonHeight,12)
+	local submitButtonText = display.newText({ x = submitButton.x, y = submitButton.y, text = "submit", font = native.systemFont, fontSize = 18, align = "center" })
+	uiGroup:insert(submitButtonText)
+	submitButtonText:setFillColor(0)
+	uiGroup.x = display.contentCenterX
+	uiGroup.y = keyGroup.y + keyGroup.height/2 + buttonOffset * 3
+end
+
 layoutCalc()
 --debugDraw()
 drawKeys()
+drawUI()
