@@ -13,29 +13,48 @@ local sceneGroup = display.newGroup()
 local keyGroup = display.newGroup()
 sceneGroup:insert(keyGroup)
 
-local letters = { "qwertyuiop", "asdfghjkl", "zxcvbnm" }
-local rowOffsets = {0, .4, 1.2}
+local letters = "abcdefghijklmnopqrstuvwxyz"
+local letterTable = {}
+for i = 1, sLen(letters) do
+	letterTable[i] = sSub(letters, i, i)
+end
+local letterCount = #letterTable
+
+
 local keySizeX, keySizeY = 50, 50
-local keySpacingX, keySpacingY = 20, 20
+local layoutData = {}
+local layoutMaxRadius, layoutRings = 200, 3
 local keys = {}
 
 local _letterRow, _letter --recycled
-local function drawKeys() --draw display objects representing keys
-	for i = 1, #letters do
-		_letterRow = letters[i]
-		keys.row = {}
-		for i2 = 1, sLen(_letterRow) do
-			_letter = sSub(_letterRow, i2, i2)
-			local button = display.newRect(keyGroup, 0, 0, keySizeX, keySizeY)
-			button:setFillColor(.3);
-			button.x = (keySizeX + keySpacingX) * (i2-1)  + button.width * rowOffsets[i]
-			button.y = (keySizeY + keySpacingY) * (i-1)
-			button.textRect = display.newText({ x = button.x, y = button.y, text = _letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
-			keyGroup:insert(button.textRect)
-		end
+
+local function layoutCalc() --calculates the layoutData table
+	for i = layoutRings, 1, -1 do
+		local ring = {}
+		layoutData[#layoutData+1] = ring
+		ring.radius = layoutMaxRadius / layoutRings * i
 	end
-	keyGroup.anchorChildren = true
-	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY
 end
 
+local function debugDraw()
+	local baseColor = { [1]= .2,[2]= .2,[3]= .2,[4]= .2 }
+	local debugGroup = display.newGroup()
+	sceneGroup:insert(debugGroup)
+	for i = 1, #layoutData do
+		local ringData = layoutData[i]
+		local circle = display.newCircle(debugGroup,0,0,ringData.radius);
+		local c = baseColor
+		c[2] = i * .3
+		circle:setFillColor( 0, 0, 0, 0);
+		circle.strokeWidth = 3
+		circle:setStrokeColor( c[1], c[2], c[3], c[4]);
+	end
+	debugGroup.x, debugGroup.y = display.contentCenterX, display.contentCenterY
+end
+
+local function drawKeys() --draw display objects representing keys
+end
+
+layoutCalc()
+debugDraw()
 drawKeys()

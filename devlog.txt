@@ -2,5 +2,6 @@ game concept:
 Players submit words using characters on screen that fit within the limited space
 As a word is submitted a new boundary is drawn using the letters that made the word thus reducing the available number of words remaining
 
-
+3 building a layoutGenerator with adjustable ring count and letter spacing
+2 will try letters in a radial layout
 1 upon drawing the keyboard layout to screen I realised it would not work for the game concept
