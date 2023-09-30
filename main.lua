@@ -33,6 +33,7 @@ local randomLetterTable = {} --holds letters from letterTable in random order
 local words = {} --loaded in loadWords(), check external/wordlist for attribution
 local layoutData = {} --stores data used for the layout of the keys
 local keys = {} --stores the key display objects
+local keyEventTable = {} --stores a table of key events with the keyboard key name as the key and the key display object as the value
 
 --constants used for display
 local layoutMaxRadius, layoutRings = 200, 3
@@ -41,6 +42,8 @@ local uiButtonHeight = 40
 local buttonOffset = 20
 local wordDisplayWidth = 300
 local submitButtonWidth = 130
+local wordDisplayBox --the display object for the displayBox
+local wordString = "" --the string of the current word
 
 
 local function generateLetterTable(str)
@@ -154,11 +157,26 @@ end
 local function drawKeys(randomLetters) --draw display objects representing keys
 	local function drawKey(x, y, letter)
 		local button = display.newRoundedRect(keyGroup, 0, 0, keySizeX, keySizeY, roundedEdgeSize)
+		button.toggled = false
 		button:setFillColor(.3);
 		button.x = x
 		button.y = y
 		button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
 		keyGroup:insert(button.textRect)
+		
+		function button:pressed()
+			if button.toggled then
+				button:setFillColor(.3)
+				button.textRect:setFillColor(1)
+				button.toggled = false
+			else
+				button:setFillColor(.8)
+				button.textRect:setFillColor(0)
+				button.toggled = true
+			end
+		end
+
+
 		return button
 	end
 	
@@ -172,18 +190,26 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 			else
 				letter = letterTable[count]
 			end
-			keys[count] = drawKey(ringData.letters[i2].x, ringData.letters[i2].y, letter)
+			keyEventTable[letter] = drawKey(ringData.letters[i2].x, ringData.letters[i2].y, letter)
 			count = count + 1
 		end
 	end
 	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentCenterY / 5
 end
 
+
 local function drawUI()
-	local wordDisplayBox = display.newRoundedRect(uiGroup,0,0,wordDisplayWidth,uiButtonHeight,roundedEdgeSize)
+	wordDisplayBox = display.newRoundedRect(uiGroup,0,0,wordDisplayWidth,uiButtonHeight,roundedEdgeSize)
 	wordDisplayBox:setFillColor(.1)
 	wordDisplayBox.strokeWidth = 3
 	wordDisplayBox:setStrokeColor(.9)
+	wordDisplayBox.textRect = display.newText({ x = wordDisplayBox.x, y = wordDisplayBox.y, text = "", font = native.systemFont, fontSize = 18, align = "center" })
+	uiGroup:insert(wordDisplayBox.textRect)
+	function wordDisplayBox:updateText()
+		print("updating text: "..wordString)
+		self.textRect.text = wordString
+	end
+
 	local submitButton = display.newRoundedRect(uiGroup,wordDisplayWidth/2 + submitButtonWidth/2 + buttonOffset,0,submitButtonWidth,uiButtonHeight,12)
 	submitButton:setFillColor(.9)
 	local submitButtonText = display.newText({ x = submitButton.x, y = submitButton.y, text = "submit", font = native.systemFont, fontSize = 18, align = "center" })
@@ -219,3 +245,31 @@ drawUI()
 
 loadWords()
 print("word count: "..#words)
+
+local function onKeyEvent(event)
+
+	local function checkLetterTable(letter)
+		for i = 1, #letterTable do
+			if letterTable[i] == letter then
+				return true
+			end
+		end
+		return false
+	end
+	
+	if event.phase == "down" then
+    	--print(event.keyName)
+		if checkLetterTable(event.keyName) then
+			keyEventTable[event.keyName]:pressed()
+			wordString = wordString..event.keyName
+			wordDisplayBox:updateText()
+		elseif event.keyName == "deleteBack" then
+			if sLen (wordString) > 0 then
+				wordString = sSub(wordString, 1, sLen(wordString) - 1)
+				wordDisplayBox:updateText()
+			end
+		end
+	end
+end
+
+Runtime:addEventListener("key", onKeyEvent )

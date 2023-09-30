@@ -3,6 +3,8 @@
 		"display",
 		"native",
 		"system",
-		"application"
+		"application",
+		"Runtime",
+		"onKeyEvent"
 	]
 }

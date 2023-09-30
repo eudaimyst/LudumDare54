@@ -2,6 +2,7 @@ game concept:
 Players submit words using characters on screen that fit within the limited space
 As a word is submitted a new boundary is drawn using the letters that made the word thus reducing the available number of words remaining
 
+7 I was going to use a simple toggle for the letters, but I need to check if they are in the word instead and only deactivate if not
 6 hit my first snag with lots of debugging print statements to randomize the letter positions, got it eventually, oh the joys of working with lua
 5 had to add random angle offset to prevent weird math layouts where the keys were lined up in rows
 4 found a suitable layout, can see lots of potential for this concept, easier if vowels / common letters are towards the middle for example
