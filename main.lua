@@ -18,11 +18,12 @@ print(pi)
 
 local sceneGroup = display.newGroup()
 local keyGroup = display.newGroup()
-keyGroup.anchorChildren = true
+local boundaryPointGroup = display.newGroup()
+keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentCenterY / 5
 local uiGroup = display.newGroup()
-uiGroup.anchorChildren = true
 sceneGroup:insert(keyGroup)
 sceneGroup:insert(uiGroup)
+sceneGroup:insert(boundaryPointGroup)
 
 local roundedEdgeSize = 12
 local letters = "abcdefghijklmnopqrstuvwxyz"
@@ -32,10 +33,13 @@ local letterTable = {} --holds each defined letter
 local randomLetterTable = {} --holds letters from letterTable in random order
 local words = {} --loaded in loadWords(), check external/wordlist for attribution
 local layoutData = {} --stores data used for the layout of the keys
-local keys = {} --stores the key display objects
+local keyButtons = {} --stores the key display objects
 local keyEventTable = {} --stores a table of key events with the keyboard key name as the key and the key display object as the value
+local boundaryPointBoundKeys = { [1] = {"xMin", "yMin"}, [2] = {"xMax", "yMin"}, [3] = {"xMin", "yMax"}, [4] = {"xMax", "yMax"} } --used for getting each corner as boundary points of the keys from its contentBounds
+local boundaryPointObjects = {} --stores the display objects for the boundary points
 
 --constants used for display
+local drawBoundaryPoints = false --draws circles at the boundary points of the key objects (for testing)
 local layoutMaxRadius, layoutRings = 200, 3
 local keySizeX, keySizeY = 50, 50
 local uiButtonHeight = 40
@@ -163,9 +167,38 @@ local function debugDraw() --for testing layout sizes and positions
 	drawCircles()
 end
 
+local _point --recycled point references
+local function updateBoundaryPointDisplay() --visualises boundary points
+	print("drawing boundary points")
+	for i = 1, #boundaryPointObjects do
+		_point = boundaryPointObjects[i]
+		if _point.displayObject then
+			_point.displayObject:removeSelf()
+			_point.displayObject = nil
+		end
+	end
+	for i = 1, #keyButtons do
+		local button = keyButtons[i]
+		if button.toggled == true then
+			for i2 = 1, 4 do
+				print(#button.boundaryPoints)
+				print("drawing boundary point: "..i2.." for key: "..button.letter)
+				local point = { x = button.boundaryPoints[i2].x, y = button.boundaryPoints[i2].y}
+				if drawBoundaryPoints == true then
+					local displayObject = display.newCircle(boundaryPointGroup, point.x, point.y, 1)
+					displayObject:setFillColor(1,0,0)
+					point.displayObject = displayObject
+				end
+				boundaryPointObjects[#boundaryPointObjects+1] = point
+			end
+		end
+	end
+end
+
 local function drawKeys(randomLetters) --draw display objects representing keys
 	local function drawKey(x, y, letter)
 		local button = display.newRoundedRect(keyGroup, 0, 0, keySizeX, keySizeY, roundedEdgeSize)
+		keyButtons[#keyButtons+1] = button
 		button.toggled = false
 		button:setFillColor(.3);
 		button.letter = letter
@@ -174,12 +207,22 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
 		html5fix(button.textRect)
 
+		button.boundaryPoints = {}
+		print(json.prettify(button.contentBounds))
+		for i = 1, 4 do
+			print(boundaryPointBoundKeys[i][1], boundaryPointBoundKeys[i][2])
+			local _x, _y = sceneGroup:localToContent( button.contentBounds[boundaryPointBoundKeys[i][1]], button.contentBounds[boundaryPointBoundKeys[i][2]] )
+			print("adding boundary point "..i.." for key: "..button.letter.." at pos: ".._x, _y)
+			button.boundaryPoints[i] = { x = _x, y = _y }
+		end
+
 		keyGroup:insert(button.textRect)
 		
 		function button:added()
 			button:setFillColor(.8)
 			button.textRect:setFillColor(0)
 			button.toggled = true
+			updateBoundaryPointDisplay()
 		end
 
 		function button:removed()
@@ -194,9 +237,8 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 				button.textRect:setFillColor(1)
 				button.toggled = false
 			end
+			updateBoundaryPointDisplay()
 		end
-
-
 		return button
 	end
 	
@@ -214,7 +256,6 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 			count = count + 1
 		end
 	end
-	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentCenterY / 5
 end
 
 
@@ -297,5 +338,3 @@ local function onKeyEvent(event)
 end
 
 Runtime:addEventListener("key", onKeyEvent )
-local text = system.getInfo( "platform" ) or "no platform"
-display.newText({ x = display.contentCenterX, y = display.contentCenterY + display.contentCenterY / 2, text = text, font = native.systemFont, fontSize = 64, align = "center" })
