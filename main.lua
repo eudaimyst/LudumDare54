@@ -159,20 +159,29 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		local button = display.newRoundedRect(keyGroup, 0, 0, keySizeX, keySizeY, roundedEdgeSize)
 		button.toggled = false
 		button:setFillColor(.3);
+		button.letter = letter
 		button.x = x
 		button.y = y
 		button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
 		keyGroup:insert(button.textRect)
 		
-		function button:pressed()
-			if button.toggled then
+		function button:added()
+			button:setFillColor(.8)
+			button.textRect:setFillColor(0)
+			button.toggled = true
+		end
+
+		function button:removed()
+			local letterInWord = false
+			for i = 1, sLen(wordString) do
+				if sSub(wordString, i, i) == button.letter then
+					letterInWord = true
+				end
+			end
+			if not letterInWord then
 				button:setFillColor(.3)
 				button.textRect:setFillColor(1)
 				button.toggled = false
-			else
-				button:setFillColor(.8)
-				button.textRect:setFillColor(0)
-				button.toggled = true
 			end
 		end
 
@@ -260,12 +269,14 @@ local function onKeyEvent(event)
 	if event.phase == "down" then
     	--print(event.keyName)
 		if checkLetterTable(event.keyName) then
-			keyEventTable[event.keyName]:pressed()
+			keyEventTable[event.keyName]:added() --call function to update key display
 			wordString = wordString..event.keyName
 			wordDisplayBox:updateText()
 		elseif event.keyName == "deleteBack" then
+			local deletedLetter = sSub(wordString, sLen(wordString), sLen(wordString))
 			if sLen (wordString) > 0 then
 				wordString = sSub(wordString, 1, sLen(wordString) - 1)
+				keyEventTable[deletedLetter]:removed() --call function to update key display, called after wordString updated for checking
 				wordDisplayBox:updateText()
 			end
 		end
