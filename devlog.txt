@@ -2,12 +2,15 @@ game concept:
 Players submit words using characters on screen that fit within the limited space
 As a word is submitted a new boundary is drawn using the letters that made the word thus reducing the available number of words remaining
 
-9 just added a quick offset fix for text on html5 (known solar2d issue) thanks to @Siu in their discord
-8 now I need to add boundary points for the keys then generate a shape with the boundary points once a letter is added to the word
-7 I was going to use a simple toggle for the letters, but I need to check if they are in the word instead and only deactivate if not
-6 hit my first snag with lots of debugging print statements to randomize the letter positions, got it eventually, oh the joys of working with lua
-5 had to add random angle offset to prevent weird math layouts where the keys were lined up in rows
-4 found a suitable layout, can see lots of potential for this concept, easier if vowels / common letters are towards the middle for example
-3 building a layoutGenerator with adjustable ring count and letter spacing
-2 will try letters in a radial layout
-1 upon drawing the keyboard layout to screen I realised it would not work for the game concept
+
+10:	added the boundary points for each key, took a good hour or so because of annoyances with solar2d's contentBounds using the parent groups offsets
+	next step will making a shape based off those points, I plan to iterate around the circle and find the nearest point, then add them to a list to build the shape
+9:	just added a quick offset fix for text on html5 (known solar2d issue) thanks to @Siu in their discord
+8:	now I need to add boundary points for the keys then generate a shape with the boundary points once a letter is added to the word
+7:	I was going to use a simple toggle for the letters, but I need to check if they are in the word instead and only deactivate if not
+6:	hit my first snag with lots of debugging print statements to randomize the letter positions, got it eventually, oh the joys of working with lua
+5:	had to add random angle offset to prevent weird math layouts where the keys were lined up in rows
+4:	found a suitable layout, can see lots of potential for this concept, easier if vowels / common letters are towards the middle for example
+3:	building a layoutGenerator with adjustable ring count and letter spacing
+2:	will try letters in a radial layout
+1:	upon drawing the keyboard layout to screen I realised it would not work for the game concept
