@@ -45,6 +45,15 @@ local submitButtonWidth = 130
 local wordDisplayBox --the display object for the displayBox
 local wordString = "" --the string of the current word
 
+local systemPlatform = system.getInfo( "platform" )
+local html5fix_offset
+local function html5fix(object)
+	if systemPlatform == "html5" then
+		html5fix_offset = object.height - object.size
+		-- realign textObject vertically
+		object.y = object.y + html5fix_offset
+	end
+end
 
 local function generateLetterTable(str)
 	local t = {}
@@ -163,6 +172,8 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		button.x = x
 		button.y = y
 		button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
+		html5fix(button.textRect)
+
 		keyGroup:insert(button.textRect)
 		
 		function button:added()
@@ -213,6 +224,7 @@ local function drawUI()
 	wordDisplayBox.strokeWidth = 3
 	wordDisplayBox:setStrokeColor(.9)
 	wordDisplayBox.textRect = display.newText({ x = wordDisplayBox.x, y = wordDisplayBox.y, text = "", font = native.systemFont, fontSize = 18, align = "center" })
+	html5fix(wordDisplayBox.textRect)
 	uiGroup:insert(wordDisplayBox.textRect)
 	function wordDisplayBox:updateText()
 		print("updating text: "..wordString)
@@ -222,6 +234,7 @@ local function drawUI()
 	local submitButton = display.newRoundedRect(uiGroup,wordDisplayWidth/2 + submitButtonWidth/2 + buttonOffset,0,submitButtonWidth,uiButtonHeight,12)
 	submitButton:setFillColor(.9)
 	local submitButtonText = display.newText({ x = submitButton.x, y = submitButton.y, text = "submit", font = native.systemFont, fontSize = 18, align = "center" })
+	html5fix(submitButtonText)
 	uiGroup:insert(submitButtonText)
 	submitButtonText:setFillColor(0)
 	uiGroup.x = display.contentCenterX
@@ -284,3 +297,5 @@ local function onKeyEvent(event)
 end
 
 Runtime:addEventListener("key", onKeyEvent )
+local text = system.getInfo( "platform" ) or "no platform"
+display.newText({ x = display.contentCenterX, y = display.contentCenterY + display.contentCenterY / 2, text = text, font = native.systemFont, fontSize = 64, align = "center" })
