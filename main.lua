@@ -13,15 +13,19 @@ local sSub = string.sub
 ---@diagnostic disable-next-line: undefined-field --this is defined by solar2d math library not recognised
 local mRound = math.round
 local mRand = math.random
-local mAtan2 = math.atan2
+local mFloor = math.floor
+local mMin = math.min
+local mMax = math.max
 local pi = math.pi
 print(pi)
 
+local debugGroup = display.newGroup()
 local sceneGroup = display.newGroup()
 local keyGroup = display.newGroup()
 local boundaryPointGroup = display.newGroup()
 keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentCenterY / 5
 local uiGroup = display.newGroup()
+sceneGroup:insert(debugGroup)
 sceneGroup:insert(keyGroup)
 sceneGroup:insert(uiGroup)
 sceneGroup:insert(boundaryPointGroup)
@@ -169,9 +173,11 @@ local function debugDraw() --for testing layout sizes and positions
 end
 
 
-local _point, _button --recycled
+local _point --recycled point references
 
+local debugLines = {}
 local function iterateCircleForShape()
+	local circleStepAngle = 12
 
 	local function getDistance(x1, y1, x2, y2)
 		local xDist = x2 - x1
@@ -181,68 +187,99 @@ local function iterateCircleForShape()
 	end
 
 	local nearestPoints = {} -- stores points that are nearest to the circles edge
+
 	local function isAlreadyANearestPoint(point)
-		print("checking if point is already a nearest point --- nearestPoints: "..#nearestPoints)
+		--print("checking if point is already a nearest point --- nearestPoints: "..#nearestPoints)
 		if #nearestPoints > 0 then
-			--print(json.prettify(nearestPoints))
 			for i = 1, #nearestPoints do
 				local checkPoint = nearestPoints[i]
-				--print("comparing point: "..point.x, point.y.." to checkPoint: "..checkPoint.x, checkPoint.y)
-				if checkPoint.x == point.x and checkPoint.y == point.y then
+				local xa, xb, ya, yb = mFloor(checkPoint.x), mFloor(point.x), mFloor(checkPoint.y), mFloor(point.y)
+				print("comparing point: "..xa, ya.." to checkPoint: "..xb, yb)
+				if xa == xb and ya == yb then
+					print("return true")
 					return true
 				end
 			end
 		end
+		print("returning false")
 		return nil
 	end
-	
-	local angles = {}
-	for i = 1, #keyButtons do
-		_button = keyButtons[i]
-		if _button.toggled == true then
-			print(_button.letter.." = ".._button.angle)
-			angles[#angles+1] = _button.angle
-		end
-	end
-	table.sort(angles)
-	for i = 1, #angles do
-		local angle = angles[i]
-		local radius = layoutMaxRadius + 100
-		--local angle = circleStepAngle * i
-		local x = radius * math.cos(math.rad(angle)) + display.contentWidth/2
-		local y = radius * math.sin(math.rad(angle)) + display.contentHeight/2
+	print("boundary points: "..#boundaryPointObjects)
+	for i = 1, math.floor(360/circleStepAngle) do
+		--iterate around the circle in steps of circleStepAngle
+		local radius = layoutMaxRadius + 50
+		local angle = circleStepAngle * i
+		local x = radius * math.cos(math.rad(angle)) + keyGroup.x
+		local y = radius * math.sin(math.rad(angle)) + keyGroup.y
 		--get distance from x, y to each key boundary point
 		local _nearestDistance = 1000000
-		print(x,y)
-		display.newCircle(sceneGroup, x, y, 5)
+		--display.newCircle(sceneGroup, x, y, 5), for testing the position of the boundary point circle
+		local nearestPoint = nil
+		local nearestPointDebugLine
+		--print("211: "..#boundaryPointObjects)
 		for i2 = 1, #boundaryPointObjects do
-			_point = boundaryPointObjects[i2]
+			_point = {x = boundaryPointObjects[i2].x, y = boundaryPointObjects[i2].y}
 			--print("checking circle iteration point: "..x, y.." against key boundary point: ".._point.x, _point.y)
 			local _distance = getDistance(x, y, _point.x, _point.y)
 			--print("distance: ".._distance)
+			local line = display.newLine(debugGroup, x, y, _point.x, _point.y)
+			line.alpha = .1
+			line.isVisible = false
+			debugLines[#debugLines+1] = line
 			if _distance < _nearestDistance then
-				print("found nearest distance")
+				--print("found nearest distance")
 				_nearestDistance = _distance
-				if not isAlreadyANearestPoint(_point) then
-					print("adding point: ".. _point.x, _point.y, "to nearest points")
-					nearestPoints[#nearestPoints+1] = _point
-					print(json.prettify(nearestPoints))
-				end
+				nearestPoint = _point
+				nearestPointDebugLine = line
+			else
+				--print("no nearest point found for circle point: "..i) , not sure why this still triggers but it does
+			end
+		end
+		if nearestPointDebugLine then
+			nearestPointDebugLine:setStrokeColor(1,0,0)
+			nearestPointDebugLine.isVisible = false
+			nearestPointDebugLine.alpha = .3
+		end
+		if nearestPoint ~= nil then
+			if not isAlreadyANearestPoint(nearestPoint) then
+				nearestPointDebugLine:setStrokeColor(0,1,0)
+				--print("adding point: ".. _point.x, _point.y, "to nearest points")
+				nearestPoints[#nearestPoints+1] = nearestPoint --add the nearest point to the nearestPoints table
+				--print("found "..#nearestPoints.." nearest points")
+				--print(json.prettify(nearestPoints))
 			end
 		end
 	end
-	local xTotal, yTotal, midPointX, midPointY = 0, 0, 0, 0
+	local shapeMinX, shapeMaxX, shapeMinY, shapeMaxy, shapeWidth, shapeHeight = 10000, 0, 10000, 0, 0, 0
 	for i = 1, #nearestPoints do
-		xTotal = xTotal + nearestPoints[i].x
-		yTotal = yTotal + nearestPoints[i].y
+		local point = nearestPoints[i]
+		if point.x < shapeMinX then
+			shapeMinX = point.x
+		end
+		if point.x > shapeMaxX then
+			shapeMaxX = point.x
+		end
+		if point.y < shapeMinY then
+			shapeMinY = point.y
+		end
+		if point.y > shapeMaxy then
+			shapeMaxy = point.y
+		end
 	end
-	midPointX = xTotal / #nearestPoints
-	midPointY = yTotal / #nearestPoints
+	shapeWidth = shapeMaxX - shapeMinX
+	shapeHeight = shapeMaxy - shapeMinY
+	local midPointX, midPointY = shapeMinX + shapeWidth/2, shapeMinY + shapeHeight/2
 	return nearestPoints, midPointX, midPointY
 end
 
-local boundaryShape = nil
+local boundaryShape
 local function updateBoundaryPointDisplay() --visualises boundary points
+	print("-----------updating boundary point display-----------")
+	print(#debugLines)
+	for i = 1, #debugLines do
+		debugLines[i]:removeSelf()
+		debugLines[i] = nil
+	end
 	--print("drawing boundary points")
 	for i = 1, #boundaryPointObjects do
 		_point = boundaryPointObjects[i]
@@ -250,6 +287,7 @@ local function updateBoundaryPointDisplay() --visualises boundary points
 			_point.displayObject:removeSelf()
 			_point.displayObject = nil
 		end
+		boundaryPointObjects[i] = nil
 	end
 	for i = 1, #keyButtons do
 		local button = keyButtons[i]
@@ -280,7 +318,7 @@ local function updateBoundaryPointDisplay() --visualises boundary points
 		boundaryShape = nil
 	end
 	boundaryShape = display.newPolygon(boundaryPointGroup, midPointX, midPointY, shapeVertices)
-	boundaryShape:setFillColor(0,1,0,.5)
+	boundaryShape:setFillColor(.2,.5,.2,.2)
 end
 
 local function drawKeys(randomLetters) --draw display objects representing keys
@@ -292,7 +330,6 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		button.letter = letter
 		button.x = x
 		button.y = y
-		button.angle = mAtan2(y, x ) * 180 / pi -- get the angle between the circle midPoint and the button, used for calculating boundary points
 		button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
 		html5fix(button.textRect)
 
@@ -330,6 +367,7 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 			end
 			updateBoundaryPointDisplay()
 		end
+
 		return button
 	end
 	
