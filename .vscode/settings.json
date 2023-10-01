@@ -5,6 +5,12 @@
 		"system",
 		"application",
 		"Runtime",
-		"onKeyEvent"
+		"onKeyEvent",
+		"string",
+		"math",
+		"io",
+		"print",
+		"require",
+		"transition"
 	]
 }
