@@ -11,6 +11,8 @@
 		"io",
 		"print",
 		"require",
-		"transition"
+		"transition",
+		"graphics",
+		"easing"
 	]
 }

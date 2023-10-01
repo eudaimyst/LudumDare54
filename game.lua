@@ -13,6 +13,36 @@ local levelData = require("level_data")
 local gameParams --passed from main lua file to scene upon creation
 local onKeyEvent
 
+--local math/string functions
+local sLen = string.len
+local sSub = string.sub
+---@diagnostic disable-next-line: undefined-field --this is defined by solar2d math library not recognised
+local mRound = math.round
+local mRand = math.random
+local mFloor = math.floor
+local mMin = math.min
+local mMax = math.max
+local pi = math.pi
+print(pi)
+
+local letters = "abcdefghijklmnopqrstuvwxyz" --letters used to build keys
+
+--scene related
+local debugGroup = {}
+local keyGroup = {}
+local boundaryPointGroup = {}
+local uiGroup = {}
+local backgroundGroup = {}
+
+--tables
+local letterTable = {} --holds each defined letter
+local randomLetterTable = {} --holds letters from letterTable in random order
+local words = {} --loaded in loadWords(), check external/wordlist for attribution
+local layoutData = {} --stores data used for the layout of the keys
+local keyButtons = {} --stores the key display objects
+local keyEventTable = {} --stores a table of key events with the keyboard key name as the key and the key display object as the value
+local boundaryPointBoundKeys = { [1] = {"xMin", "yMin"}, [2] = {"xMax", "yMin"}, [3] = {"xMin", "yMax"}, [4] = {"xMax", "yMax"} } --used for getting each corner as boundary points of the keys from its contentBounds
+local boundaryPointObjects = {} --stores the display objects for the boundary points
 
 --constants used for display
 local gameFont = "content/font/rockmaker.regular.ttf"
@@ -25,51 +55,44 @@ local buttonOffset = 20
 local wordDisplayWidth = 300
 local submitButtonWidth = 130
 
+local submittedWordCount = 0
+
+--vars
+local targetWordCount = 0
+submittedWordCount = 0
+local wordsRemainingDisplay = {} --shows how many words remaining to get to next level
+local wordDisplayBox = {}--the display object for the displayBox
+local wordString = "" --the string of the current word
+local lastSubmittedword = "" --when a word is submitted we store it to prevent duplicate words
+local avatar = {}--a character that runs around
+
+local game = {} --solely used for submit word / delete letter functions because I got lazy at the end and need to get to it from a tap on their buttons
+
 local function runGame(sceneGroup)
 
-	local sLen = string.len
-	local sSub = string.sub
-	---@diagnostic disable-next-line: undefined-field --this is defined by solar2d math library not recognised
-	local mRound = math.round
-	local mRand = math.random
-	local mFloor = math.floor
-	local mMin = math.min
-	local mMax = math.max
-	local pi = math.pi
-	print(pi)
+	local function initVars() --after scene is loaded we need to initialise variables to defaults
+		debugGroup = display.newGroup()
+		keyGroup = display.newGroup()
+		boundaryPointGroup = display.newGroup()
+		keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentHeight/20
+		uiGroup = display.newGroup()
+		backgroundGroup = display.newGroup()
+		sceneGroup:insert(backgroundGroup)
+		sceneGroup:insert(debugGroup)
+		sceneGroup:insert(keyGroup)
+		sceneGroup:insert(uiGroup)
+		sceneGroup:insert(boundaryPointGroup)
 
-	local debugGroup = display.newGroup()
-	
-	local keyGroup = display.newGroup()
-	local boundaryPointGroup = display.newGroup()
-	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentHeight/20
-	local uiGroup = display.newGroup()
-	local backgroundGroup = display.newGroup()
-	sceneGroup:insert(backgroundGroup)
-	sceneGroup:insert(debugGroup)
-	sceneGroup:insert(keyGroup)
-	sceneGroup:insert(uiGroup)
-	sceneGroup:insert(boundaryPointGroup)
-
-	local letters = "abcdefghijklmnopqrstuvwxyz" --letters used for everything
-
-	--tables
-	local letterTable = {} --holds each defined letter
-	local randomLetterTable = {} --holds letters from letterTable in random order
-	local words = {} --loaded in loadWords(), check external/wordlist for attribution
-	local layoutData = {} --stores data used for the layout of the keys
-	local keyButtons = {} --stores the key display objects
-	local keyEventTable = {} --stores a table of key events with the keyboard key name as the key and the key display object as the value
-	local boundaryPointBoundKeys = { [1] = {"xMin", "yMin"}, [2] = {"xMax", "yMin"}, [3] = {"xMin", "yMax"}, [4] = {"xMax", "yMax"} } --used for getting each corner as boundary points of the keys from its contentBounds
-	local boundaryPointObjects = {} --stores the display objects for the boundary points
-
-	--vars
-	local targetWordCount = 1+gameParams.level
-	local submittedWordCount = 0
-	local wordsRemainingDisplay --shows how many words remaining to get to next level
-	local wordDisplayBox --the display object for the displayBox
-	local wordString = "" --the string of the current word
-	local lastSubmittedword = "" --when a word is submitted we store it to prevent duplicate words
+		targetWordCount = 1+gameParams.level
+		submittedWordCount = 0
+		wordsRemainingDisplay = {} --shows how many words remaining to get to next level
+		wordDisplayBox = {} --the display object for the displayBox
+		wordString = "" --the string of the current word
+		lastSubmittedword = "" --when a word is submitted we store it to prevent duplicate words
+		avatar = {} --a character that runs around
+		
+	end
+	initVars()
 
 	local systemPlatform = system.getInfo( "platform" )
 	local html5fix_offset
@@ -77,7 +100,7 @@ local function runGame(sceneGroup)
 		if systemPlatform == "html5" then
 			html5fix_offset = object.height - object.size
 			-- realign textObject vertically
-			object.y = object.y + html5fix_offset
+			object.y = object.y + html5fix_offset/2 --this stopped working so we will brute force instead
 		end
 	end
 
@@ -85,8 +108,16 @@ local function runGame(sceneGroup)
 		local background = display.newImageRect(backgroundGroup, "content/background.png", 950, 950)
 		background.x, background.y = display.contentCenterX + 18, display.contentCenterY - 5
 		backgroundGroup:insert(background)
+ 
+		local filename = system.pathForFile( "content/particles/lava.spurts.json", system.ResourceDirectory )
+		local emitterParams = json.decodeFile( filename )
+		local lavaEmitter = display.newEmitter(emitterParams)
+		lavaEmitter:start()
+		lavaEmitter.x, lavaEmitter.y = display.contentCenterX, display.contentCenterY - 50
+		backgroundGroup:insert(lavaEmitter)
 	end
 	drawNewBackground()
+
 	local function drawBackground()
 		
 		backgroundGroup.images = {}
@@ -123,6 +154,89 @@ local function runGame(sceneGroup)
 		Runtime:addEventListener("enterFrame", animateBackground)
 	end
 	--drawBackground()
+
+	local function makeAvatar()
+		local function avatarOnFrame()
+			keyGroup:insert(avatar)
+			if avatar.currentKeyButton == nil then
+				if #keyButtons > 0 then
+					if avatar.nextKeyToJumpTo == nil then
+						--pick a random key button to move to
+						avatar.currentKeyButton = keyButtons[mRand(1, #keyButtons)]
+						avatar:moveToKey(avatar.currentKeyButton)
+					end
+				end
+			elseif avatar.isJumping == false then
+				if avatar.hasIdleTarget == false then
+					avatar:idleOnPlatform()
+				end
+			end
+		end
+
+		local sheetOptions = { frames = {}}
+		local baseFrame = {y = 0, height = 94, width = 10}
+		local xPositions = {1, 51, 104, 177, 252, 326}
+		for i = 1, 5 do
+			sheetOptions.frames[i] = {x = xPositions[i], width = xPositions[i+1]-xPositions[i],y = baseFrame.y, height = baseFrame.height}
+		end
+		local sheet = graphics.newImageSheet( "content/avatar.png", sheetOptions )
+		local sequences = {
+			{ name = "idle", start = 1, count = 2, time = 2000, loopCount = 0 },
+			{ name = "move", start = 3, count = 2, time = 400, loopCount = 0 },
+			{ name = "jump", start = 5, count = 1, time = 10000, loopCount = 0 },
+		}
+		avatar = display.newGroup()
+		avatar.sprite = display.newSprite( avatar, sheet, sequences )
+		avatar.sprite.xScale, avatar.sprite.yScale = .12, .12
+		avatar.sprite:play()
+		avatar.currentKeyButton = nil
+		avatar.nextKeyToJumpTo = nil
+		avatar.isJumping = false
+		avatar.hasIdleTarget = false
+
+		local platformOffsetY = -32
+		local halfPlatformWidth, halfPlatformHeight = 20, 10
+
+		local function triggerGameOver()
+			gameParams:resetGame()
+		end
+
+		function avatar:fallToDeath()
+			transition.cancel( "avatar" )
+			avatar.sprite:setSequence("jump")
+			transition.moveTo(avatar, {x = avatar.x, y = avatar.y +10, time = 1000, tag="avatar", onComplete = triggerGameOver})
+			transition.scaleTo(avatar.sprite, {xScale = 0, yScale = 0, time = 1000, tag="avatar"})
+		end
+
+		function avatar:idleOnPlatform()
+			avatar.hasIdleTarget = true
+			transition.cancel( "avatar" )
+			avatar.sprite:setSequence("move")
+			avatar.sprite:play()
+			local platform = avatar.currentKeyButton
+			local xPos = math.random(platform.x - halfPlatformWidth, platform.x + halfPlatformWidth)
+			if xPos > avatar.x then avatar.sprite.xScale = .15 else avatar.sprite.xScale = -.15 end
+			local yPos = math.random(platform.y - halfPlatformHeight, platform.y + halfPlatformHeight) + platformOffsetY
+			transition.moveTo(avatar, {x = xPos, y = yPos, time = 1000, tag="avatar", onComplete = function() avatar.hasIdleTarget = false end})
+		end
+
+		function avatar:moveToKey(keyButton)
+			avatar.currentKeyButton = keyButton
+			avatar.isJumping = true
+			transition.cancel( "avatar" )
+			avatar.sprite:setSequence("jump")
+			if keyButton.x > avatar.x then avatar.sprite.xScale = .15 else avatar.sprite.xScale = -.15 end
+			local function transBack() transition.to(avatar.sprite, { transition= easing.inCirc, time=500, y=(20) } ) end
+			transition.to(avatar.sprite, { transition= easing.outCirc, time=500, y=(-20), tag="avatar",onComplete=transBack } )
+			transition.moveTo(avatar, {x = keyButton.x, y = keyButton.y + platformOffsetY, time = 1000, tag="avatar", onComplete = function() avatar.isJumping = false; avatar.hasIdleTarget = false end})
+		end
+		
+		function avatar:removeEventListener()
+			Runtime:removeEventListener("enterFrame", avatarOnFrame)
+		end
+		Runtime:addEventListener("enterFrame", avatarOnFrame)
+	end
+	makeAvatar()
 
 	local function generateLetterTable(str)
 		local t = {}
@@ -399,7 +513,10 @@ local function runGame(sceneGroup)
 			boundaryShape = nil
 		end
 		boundaryShape = display.newPolygon(boundaryPointGroup, midPointX, midPointY, shapeVertices)
-		boundaryShape:setFillColor(.2,.5,.2,.2)
+		--boundaryShape:setFillColor(.2,.5,.2,.2)
+		boundaryShape:setFillColor(0,0,0,0)
+		boundaryShape.strokeWidth = 4
+		boundaryShape:setStrokeColor(1, 0, 0)
 	end
 
 	local function drawKeys(randomLetters) --draw display objects representing keys
@@ -447,6 +564,13 @@ local function runGame(sceneGroup)
 				if button.canBeToggled == false then
 					return
 				end
+				if avatar then
+					if avatar.isJumping == false then
+						avatar:moveToKey(self)
+					else
+						avatar.nextKeyToJumpTo = self
+					end
+				end
 				wordString = wordString..self.letter
 				wordDisplayBox:updateText()
 				button:setFillColor(.8)
@@ -469,7 +593,10 @@ local function runGame(sceneGroup)
 				end
 				updateBoundaryPointDisplay()
 			end
-
+			local function tapListener( event )
+				event.target:addedToWord()
+			end
+			button:addEventListener( "tap", tapListener )  -- Add a "tap" listener to the object
 			return button
 		end
 		
@@ -505,6 +632,7 @@ local function runGame(sceneGroup)
 		uiGroup:insert(levelDisplay)
 		uiGroup:insert(wordsRemainingDisplay)
 		wordDisplayBox = display.newRoundedRect(uiGroup,0,0,wordDisplayWidth,uiButtonHeight,roundedEdgeSize)
+		wordDisplayBox.x = -90
 		wordDisplayBox:setFillColor(.1)
 		wordDisplayBox.strokeWidth = 3
 		wordDisplayBox:setStrokeColor(.9)
@@ -516,14 +644,32 @@ local function runGame(sceneGroup)
 			self.textRect.text = wordString
 		end
 
-		local submitButton = display.newRoundedRect(uiGroup,wordDisplayWidth/2 + submitButtonWidth/2 + buttonOffset,0,submitButtonWidth,uiButtonHeight,12)
+		local backButton = display.newRoundedRect(uiGroup,wordDisplayBox.x + wordDisplayBox.width/2 + buttonOffset*1.5,0,uiButtonHeight,uiButtonHeight,12)
+		backButton:setFillColor(.9)
+		local backButtonText = display.newText({ x = backButton.x, y = backButton.y, text = "<", font = gameFont, fontSize = 18, align = "center" })
+		html5fix(backButtonText)
+		uiGroup:insert(backButtonText)
+		backButtonText:setFillColor(0)
+
+		local submitButton = display.newRoundedRect(uiGroup,backButton.x + backButton.width + backButton.width + buttonOffset,0,submitButtonWidth,uiButtonHeight,12)
 		submitButton:setFillColor(.9)
 		local submitButtonText = display.newText({ x = submitButton.x, y = submitButton.y, text = "submit", font = gameFont, fontSize = 18, align = "center" })
 		html5fix(submitButtonText)
 		uiGroup:insert(submitButtonText)
 		submitButtonText:setFillColor(0)
+
 		uiGroup.x = display.contentCenterX
 		uiGroup.y = keyGroup.y + keyGroup.height/2 + buttonOffset * 3
+		
+		local function backListener( event )
+			game.removeLetter()
+		end
+		backButton:addEventListener( "tap", backListener )  -- Add a "tap" listener to the object
+
+		local function submitListener( event )
+			game.submitWord()
+		end
+		submitButton:addEventListener( "tap", submitListener )  -- Add a "tap" listener to the object
 	end
 
 	local _firstLetter, _onlyOneLetter --recycled
@@ -570,6 +716,17 @@ local function runGame(sceneGroup)
 	loadWords()
 	print("word count: "..#words)
 
+	local function showError(errorString)
+		
+		local errorText = display.newText({ x = 0, y = wordDisplayBox.y - wordDisplayBox.height, text = errorString, font = native.systemFont, fontSize = 18, align = "center" })
+		uiGroup:insert(errorText)
+		errorText:setFillColor(1,0,0,1)
+
+		transition.fadeOut(errorText, { time = 2000, onComplete = function() errorText:removeSelf() end });
+		transition.moveTo(errorText, { time = 2000, y = errorText.y - 200, onComplete = function() errorText:removeSelf() end });
+
+	end
+
 	--for testing to get the enter keycode on html5
 	local keyCodeDisplay = display.newText({ x = display.contentCenterX, y = display.contentCenterY, text = "", font = native.systemFont, fontSize = 18, align = "center" })
 	keyCodeDisplay:setFillColor(1,0,0,1)
@@ -602,6 +759,22 @@ local function runGame(sceneGroup)
 				end
 			end
 			Runtime:removeEventListener("enterFrame", samplers.checkForResults)
+		end
+		if avatar then
+			local remainingKeys = {}
+			for i = 1, #keyButtons do 
+				if keyButtons[i].isVisible == true then
+					remainingKeys[#remainingKeys+1] = keyButtons[i] --add to table of remaining keys for avatar to
+				end
+			end
+			if #remainingKeys == 0 then
+				--print("no remaining keys, idling on current platform")
+				showError("no platforms left")
+				avatar:fallToDeath()
+			else
+				local randomPlatform = remainingKeys[mRand(1, #remainingKeys)]
+				avatar:moveToKey(randomPlatform)
+			end
 		end
 	end
 
@@ -639,19 +812,7 @@ local function runGame(sceneGroup)
 		Runtime:addEventListener("enterFrame", samplers.checkForResults)
 	end
 
-	local function showError(errorString)
-		
-		local errorText = display.newText({ x = 0, y = wordDisplayBox.y - wordDisplayBox.height, text = errorString, font = native.systemFont, fontSize = 18, align = "center" })
-		uiGroup:insert(errorText)
-		errorText:setFillColor(1,0,0,1)
-
-		transition.fadeOut(errorText, { time = 2000, onComplete = function() errorText:removeSelf() end });
-		transition.moveTo(errorText, { time = 2000, y = errorText.y - 200, onComplete = function() errorText:removeSelf() end });
-
-	end
-
-	local _count, _len1, _len2, _let1, _let2, _compareWord, _sameWords, _sameLetters --recycled
-	local function submitWord()
+	function game.submitWord()
 		if wordString == lastSubmittedword then
 			print("duplicate word")
 			showError("'"..wordString.."' already submitted")
@@ -671,8 +832,9 @@ local function runGame(sceneGroup)
 		if checkWordList(wordString) then
 			print("word found")
 			submittedWordCount = submittedWordCount + 1
+			showError(submittedWordCount.."/"..targetWordCount.." words found")
 			if submittedWordCount >= targetWordCount then
-				print("level complete")
+				print("level complete: "..submittedWordCount.."/"..targetWordCount.." words found")
 				gameParams:nextLevel()
 				return
 			end
@@ -685,6 +847,15 @@ local function runGame(sceneGroup)
 		else
 			showError("'"..wordString.."' invalid")
 			print("word not found")
+		end
+	end
+
+	function game.removeLetter()
+		local deletedLetter = sSub(wordString, sLen(wordString), sLen(wordString))
+		if sLen (wordString) > 0 then
+			wordString = sSub(wordString, 1, sLen(wordString) - 1)
+			keyEventTable[deletedLetter]:removedFromWord() --call function to update key display, called after wordString updated for checking
+			wordDisplayBox:updateText()
 		end
 	end
 
@@ -705,15 +876,10 @@ local function runGame(sceneGroup)
 			if checkLetterTable(event.keyName) then
 				keyEventTable[event.keyName]:addedToWord() --call function to update key display
 			elseif event.keyName == "deleteBack" then
-				local deletedLetter = sSub(wordString, sLen(wordString), sLen(wordString))
-				if sLen (wordString) > 0 then
-					wordString = sSub(wordString, 1, sLen(wordString) - 1)
-					keyEventTable[deletedLetter]:removedFromWord() --call function to update key display, called after wordString updated for checking
-					wordDisplayBox:updateText()
-				end
+				game.removeLetter()
 			elseif event.keyName == "enter" then
 				print("enter pressed")
-				submitWord()
+				game.submitWord()
 				return true
 			end
 		end
@@ -774,6 +940,8 @@ function scene:hide( event )
     if ( phase == "will" ) then
 
 		Runtime:removeEventListener("key", onKeyEvent )
+		avatar:removeEventListener()
+		transition.cancelAll()
         -- Code here runs when the scene is on screen (but is about to go off screen)
  
     elseif ( phase == "did" ) then

@@ -2,6 +2,9 @@ game concept:
 Players submit words using characters on screen that fit within the limited space
 As a word is submitted a new boundary is drawn using the letters that made the word thus reducing the available number of words remaining
 
+16:	I spent a long time trying to make some graphics with an animated lava background but it was literally a waste of time, looked terrible, like something from the 90s. So instead I just
+	whipped up some vector shapes in photoshop which do a much better job. There's a lot of things I *could* do but with 12 hours to go and sleep still remaining I'm not too sure what my
+	time would be best spent on. 
 15:	turns out the word checking was really simple, just needed to remove the trailing string when importing in html5... I turned it into a simple game just with levels determined by how many
 	words you can clear before running out of letters. I've taken a few hours trying to get an art style working, nothing so far, it looks terrible. I'll try vector style next
 14: removing keys now works, been struggling on the word checking in html5, something funky is going on with the tables
