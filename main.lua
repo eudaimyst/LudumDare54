@@ -458,6 +458,9 @@ local function loadWords()
 	if file then
 		for line in file:lines() do
 			if count > 309 then --ignore first 309 lines for attribution
+				if systemPlatform == "html5" then
+					line = sSub(line, 1, sLen(line)-1)
+				end
 				if sLen(line) >= 1 then
 					_firstLetter = sSub(line, 1, 1)
 					_onlyOneLetter = true
@@ -479,30 +482,6 @@ local function loadWords()
 	else
 		print("no file")
 	end
-	--output file for testing
-	
-	-- Path for the file to write
-	path = system.pathForFile( "superuniquenameforfindingitinbrowser.txt", system.DocumentsDirectory )
-	
-	-- Open the file handle
-	local _file, errorString = io.open( path, "w" )
-	
-	if not _file then
-		-- Error occurred; output the cause
-		print( "File error: " .. errorString )
-	else
-		print("save file")
-		local saveData = ""
-		for i = 1, 500 do
-			saveData = saveData..words[i]
-		end
-		_file:write( saveData )
-		-- Write data to file
-		-- Close the file handle
-		io.close( _file )
-	end
-	
-	file = nil
 end
 
 layoutCalc()
@@ -584,7 +563,7 @@ local _count, _len1, _len2, _let1, _let2, _compareWord, _sameWords, _sameLetters
 local function submitWord()
 
 	local function checkWordList(inputWord)
-		keyCodeDisplay.text = sLen(words[500])
+		keyCodeDisplay.text = words[1].."\n"..words[2].."\n"..words[3].."\n"..words[4]
 		_len1 = sLen(inputWord)
 		for i = 1, #words do --for each word in the word list
 			_compareWord = words[i]
