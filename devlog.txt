@@ -2,6 +2,7 @@ game concept:
 Players submit words using characters on screen that fit within the limited space
 As a word is submitted a new boundary is drawn using the letters that made the word thus reducing the available number of words remaining
 
+14: removing keys now works, been struggling on the word checking in html5, something funky is going on with the tables
 13:	hit a hitch with color sampling the screen in solar2d as it uses a callback. I'll have to setup an onFrame loop and listen for the callback and process each color sample as they come in
 	not a dealbreaker but certainly annoying as I was hoping to get key removal done before sleep
 12: at the 11 hour mark and finally got the boundary point checking correctly, I think I will use the green value of the pixel to determine whether key is in the boundary,

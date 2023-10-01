@@ -346,6 +346,7 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		local button = display.newRoundedRect(keyGroup, 0, 0, keySizeX, keySizeY, roundedEdgeSize)
 		keyButtons[#keyButtons+1] = button
 		button.toggled = false
+		button.canBeToggled = true
 		button:setFillColor(.3);
 		button.letter = letter
 		button.x = x
@@ -363,8 +364,26 @@ local function drawKeys(randomLetters) --draw display objects representing keys
 		end
 
 		keyGroup:insert(button.textRect)
+
+		function button:insideBoundary()
+			print(button.letter.." is INSIDE boundary")
+			if button.canBeToggled then --only set as visible if it hasn't already been outside a previous boundary
+				button.isVisible = true
+				button.textRect.isVisible = true
+			end
+		end
 		
+		function button:outsideBoundary()
+			print(button.letter.." is OUTSIDE boundary")
+			button.isVisible = false
+			button.textRect.isVisible = false
+			button.canBeToggled = false
+		end
+
 		function button:addedToWord() --called from key event or when button is pressed
+			if button.canBeToggled == false then
+				return
+			end
 			wordString = wordString..self.letter
 			wordDisplayBox:updateText()
 			button:setFillColor(.8)
@@ -431,14 +450,28 @@ local function drawUI()
 	uiGroup.y = keyGroup.y + keyGroup.height/2 + buttonOffset * 3
 end
 
+local _firstLetter, _onlyOneLetter --recycled
 local function loadWords()
 	local path = system.pathForFile( "external/wordlist.txt", system.ResourceDirectory )
 	local file = io.open( path, "r" )
 	local count = 1
 	if file then
 		for line in file:lines() do
-			if count >= 310 then --ignore first 309 lines for attribution
-				words[#words+1] = line
+			if count > 309 then --ignore first 309 lines for attribution
+				if sLen(line) >= 1 then
+					_firstLetter = sSub(line, 1, 1)
+					_onlyOneLetter = true
+					for i = 1, sLen(line) do
+						if sSub(line, i, i) ~= _firstLetter then
+							_onlyOneLetter = false
+						end
+					end
+					if _onlyOneLetter == false then
+						words[#words+1] = line
+					else
+						print("ignoring word that only contains one letter: "..line)
+					end
+				end
 			end
 			count = count + 1
 		end
@@ -446,6 +479,30 @@ local function loadWords()
 	else
 		print("no file")
 	end
+	--output file for testing
+	
+	-- Path for the file to write
+	path = system.pathForFile( "superuniquenameforfindingitinbrowser.txt", system.DocumentsDirectory )
+	
+	-- Open the file handle
+	local _file, errorString = io.open( path, "w" )
+	
+	if not _file then
+		-- Error occurred; output the cause
+		print( "File error: " .. errorString )
+	else
+		print("save file")
+		local saveData = ""
+		for i = 1, 500 do
+			saveData = saveData..words[i]
+		end
+		_file:write( saveData )
+		-- Write data to file
+		-- Close the file handle
+		io.close( _file )
+	end
+	
+	file = nil
 end
 
 layoutCalc()
@@ -458,31 +515,112 @@ drawUI()
 loadWords()
 print("word count: "..#words)
 
+--for testing to get the enter keycode on html5
+local keyCodeDisplay = display.newText({ x = display.contentCenterX, y = display.contentCenterY, text = "", font = native.systemFont, fontSize = 18, align = "center" })
+keyCodeDisplay:setFillColor(1,0,0,1)
 
-local function removeWordsOutsideBoundary() --called when word is submitted
-	local function colorSampleResult(event)
-		
+local samplerFactory = {}
+local samplers = {}
+
+function samplers.checkForResults()
+	print("checking for results on "..#samplers.." samplers")
+	local allResultsReceived = true
+	for i = 1, #samplers do
+		if samplers[i].receivedResult == false then
+			allResultsReceived = false
+		end
 	end
-	for i = 1, #keyButtons do
-		local button = keyButtons[i]
-		display.colorSample( button:localToContent(0, 0), colorSampleResult )
+	if allResultsReceived then
+		print("received all color samplerResults, samplers: "..#samplers)
+		for i = 1, #samplers do
+			local sampler = samplers[i]
+			if sampler.result == true then
+				sampler.keyButton:insideBoundary()
+			else
+				sampler.keyButton:outsideBoundary()
+			end
+		end
+		for i = 1, #keyButtons do
+			local button = keyButtons[i]
+			if button.toggled == true then
+				button:removedFromWord()
+			end
+		end
+		Runtime:removeEventListener("enterFrame", samplers.checkForResults)
 	end
 end
 
+function samplerFactory:new()
+	local sampler = {}
+	sampler.receivedResult, sampler.result = false, false
+	samplers[#samplers+1] = sampler
+
+	function sampler.resultListener(event) --function to be called by the colorSample event listener
+		--keyCodeDisplay.text = "receiving samples"
+		sampler.receivedResult = true
+		print("color sample result: "..event.r..", "..event.g..", "..event.b..", "..event.a)
+		if event.g == 1 and event.r == 0 and event.b == 0 then sampler.result = true end
+	end
+	return sampler
+end
+
+local function removeWordsOutsideBoundary() --called when word is submitted
+	boundaryShape:setFillColor(0,1,0,1)
+	for i = 1, #keyButtons do
+		local button = keyButtons[i]
+		local sampler = samplerFactory:new()
+		sampler.keyButton = button
+		sampler.keyButton.textRect.isVisible = false --hide the letter while checking colors
+		local buttonContentX, buttonContentY = button:localToContent(0, 0)
+		print("sampling letter "..button.letter, buttonContentX, buttonContentY)
+		--keyCodeDisplay.text = "setting sample listener"
+		display.colorSample( buttonContentX, buttonContentY, sampler.resultListener )
+	end
+	Runtime:addEventListener("enterFrame", samplers.checkForResults)
+end
+
+
+local _count, _len1, _len2, _let1, _let2, _compareWord, _sameWords, _sameLetters --recycled
 local function submitWord()
-	local wordFound = false
-	for i = 1, #words do
-		if words[i] == wordString then
-			wordFound = true
+
+	local function checkWordList(inputWord)
+		keyCodeDisplay.text = sLen(words[500])
+		_len1 = sLen(inputWord)
+		for i = 1, #words do --for each word in the word list
+			_compareWord = words[i]
+			--print("comparing word: "..inputWord.." to word: ".._compareWord)
+			_len2 = sLen(_compareWord)
+			_count = 1
+			if _len1 == _len2 then --lengths are the same, check each letter
+				--print("comparing word: "..inputWord.." to word: ".._compareWord)
+				_sameLetters = true
+				while _count <= _len1 and _sameLetters == true do --use a while loop to exit out of loop if letters are not the same
+					_let1 = sSub(inputWord, _count, _count)
+					_let2 = sSub(_compareWord, _count, _count)
+					--print("comparing letter: ".._let1.." to letter: ".._let2)
+					if _let1 ~= _let2 then
+						_sameLetters = false
+					elseif (_count == _len1) then
+						--print("words are same: "..inputWord.." == "..words[i])
+						return true
+					end
+					_count = _count + 1
+				end
+			else
+				--print("word lengths are not the same, ignoring word")
+			end
 		end
 	end
+	print("submitting word: "..wordString)
+	--keyCodeDisplay.text = "submitting word: "..wordString..", "..#words
+	local wordFound = checkWordList(wordString)
+	----keyCodeDisplay.text = words[500]
 	if wordFound then
 		print("word found")
+		--keyCodeDisplay.text = "word found"
 		wordString = ""
 		wordDisplayBox:updateText()
-		removeWordsOutsideBoundary()
-		clearBoundaryPointDisplay()
-		updateBoundaryPointDisplay()
+		removeWordsOutsideBoundary() --anything that happens after this needs to happen after the samplers.checkForResults() function is is completed
 	else
 		print("word not found")
 	end
@@ -500,6 +638,7 @@ local function onKeyEvent(event)
 	end
 	
 	if event.phase == "down" then
+		--keyCodeDisplay.text = event.keyName
     	--print(event.keyName)
 		if checkLetterTable(event.keyName) then
 			keyEventTable[event.keyName]:addedToWord() --call function to update key display
@@ -513,6 +652,7 @@ local function onKeyEvent(event)
 		elseif event.keyName == "enter" then
 			print("enter pressed")
 			submitWord()
+			return true
 		end
 	end
 end
