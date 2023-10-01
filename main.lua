@@ -7,8 +7,9 @@
 -----------------------------------------------------------------------------------------
 local composer = require("composer")
 
-display.setDefault( "magTextureFilter", "nearest" )
-display.setDefault( "minTextureFilter", "nearest" )
+--display.setDefault( "magTextureFilter", "nearest" )
+--display.setDefault( "minTextureFilter", "nearest" )
+display.setDefault( "background", 127/255, 79/255, 50/255, 1 )
 
 local gameParams = {}
 gameParams.level = 1

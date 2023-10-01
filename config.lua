@@ -7,9 +7,9 @@ application =
 {
 	content =
 	{
-		width = 600,
-		height = 800, 
-		scale = "letterbox",
+		width = 1400,
+		height = 1400, 
+		scale = "zoomEven",
 		fps = 60,
 		
 		--[[

@@ -7,12 +7,15 @@
 -----------------------------------------------------------------------------------------
 local composer = require("composer")
 local json = require("json")
+
+local levelData = require("level_data")
+
 local gameParams --passed from main lua file to scene upon creation
 local onKeyEvent
 
 
 --constants used for display
-local gameFont = 
+local gameFont = "content/font/rockmaker.regular.ttf"
 local roundedEdgeSize = 12
 local drawBoundaryPoints = false --draws circles at the boundary points of the key objects (for testing)
 local layoutMaxRadius, layoutRings = 200, 3
@@ -39,7 +42,7 @@ local function runGame(sceneGroup)
 	
 	local keyGroup = display.newGroup()
 	local boundaryPointGroup = display.newGroup()
-	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentCenterY / 5
+	keyGroup.x, keyGroup.y = display.contentCenterX, display.contentCenterY - display.contentHeight/20
 	local uiGroup = display.newGroup()
 	local backgroundGroup = display.newGroup()
 	sceneGroup:insert(backgroundGroup)
@@ -78,6 +81,12 @@ local function runGame(sceneGroup)
 		end
 	end
 
+	local function drawNewBackground()
+		local background = display.newImageRect(backgroundGroup, "content/background.png", 950, 950)
+		background.x, background.y = display.contentCenterX + 18, display.contentCenterY - 5
+		backgroundGroup:insert(background)
+	end
+	drawNewBackground()
 	local function drawBackground()
 		
 		backgroundGroup.images = {}
@@ -113,7 +122,7 @@ local function runGame(sceneGroup)
 		
 		Runtime:addEventListener("enterFrame", animateBackground)
 	end
-	drawBackground()
+	--drawBackground()
 
 	local function generateLetterTable(str)
 		local t = {}
@@ -162,19 +171,19 @@ local function runGame(sceneGroup)
 	--print("random letter len: "..#randomLetterTable, json.prettify(randomLetterTable))
 
 
-	local function layoutCalc() --calculates the layoutData table
+	local function layoutCalc() --calculates the layoutData table, instead we are loading the data from level_data.lua
 		local totalCircum = 0
 		for i = layoutRings, 1, -1 do --calculate data for the circles
 			local ring = {}
 			layoutData[#layoutData+1] = ring
-			ring.radius = layoutMaxRadius / layoutRings * i
+			ring.radius = levelData.ringLayouts[i].radius
 			ring.circum = 2 * pi * ring.radius
 			totalCircum = totalCircum + ring.circum
 		end
 		for i = 1, #layoutData do --calculate letter count and angle for each ring
 			local ring = layoutData[i]
 			local percent = ring.circum / totalCircum
-			ring.letterCount = mRound(percent * #letterTable)
+			ring.letterCount = levelData.ringLayouts[4-i].count --mRound(percent * #letterTable)
 			ring.letterAngle = 360 / ring.letterCount
 			print("ring "..i.." percent: "..percent..", letterCount: "..ring.letterCount.. ", letterAngle: "..ring.letterAngle)
 		end
@@ -395,15 +404,17 @@ local function runGame(sceneGroup)
 
 	local function drawKeys(randomLetters) --draw display objects representing keys
 		local function drawKey(x, y, letter)
-			local button = display.newRoundedRect(keyGroup, 0, 0, keySizeX, keySizeY, roundedEdgeSize)
+			--local button = display.newRoundedRect(keyGroup, 0, 0, keySizeX, keySizeY, roundedEdgeSize)
+			local randPlat = mRand(1,4) 
+			local button = display.newImageRect(keyGroup, "content/platforms/"..randPlat..".png", keySizeX, keySizeY)
 			keyButtons[#keyButtons+1] = button
 			button.toggled = false
 			button.canBeToggled = true
-			button:setFillColor(.3);
+			--button:setFillColor(.3);
 			button.letter = letter
 			button.x = x
 			button.y = y
-			button.textRect = display.newText({ x = button.x, y = button.y, text = letter,	width = 50,	font = native.systemFont, fontSize = 18, align = "center" })
+			button.textRect = display.newText({ x = button.x, y = button.y - button.height*.3, text = letter,	width = 50,	font = gameFont, fontSize = 24, align = "center" })
 			html5fix(button.textRect)
 
 			button.boundaryPoints = {}
@@ -439,7 +450,7 @@ local function runGame(sceneGroup)
 				wordString = wordString..self.letter
 				wordDisplayBox:updateText()
 				button:setFillColor(.8)
-				button.textRect:setFillColor(0)
+				button.textRect:setFillColor(.8, 0, 0)
 				button.toggled = true
 				updateBoundaryPointDisplay()
 			end
@@ -452,7 +463,7 @@ local function runGame(sceneGroup)
 					end
 				end
 				if not letterInWord then
-					button:setFillColor(.3)
+					button:setFillColor(1)
 					button.textRect:setFillColor(1)
 					button.toggled = false
 				end
@@ -497,7 +508,7 @@ local function runGame(sceneGroup)
 		wordDisplayBox:setFillColor(.1)
 		wordDisplayBox.strokeWidth = 3
 		wordDisplayBox:setStrokeColor(.9)
-		wordDisplayBox.textRect = display.newText({ x = wordDisplayBox.x, y = wordDisplayBox.y, text = "", font = native.systemFont, fontSize = 18, align = "center" })
+		wordDisplayBox.textRect = display.newText({ x = wordDisplayBox.x, y = wordDisplayBox.y, text = "", font = gameFont, fontSize = 18, align = "center" })
 		html5fix(wordDisplayBox.textRect)
 		uiGroup:insert(wordDisplayBox.textRect)
 		function wordDisplayBox:updateText()
@@ -507,7 +518,7 @@ local function runGame(sceneGroup)
 
 		local submitButton = display.newRoundedRect(uiGroup,wordDisplayWidth/2 + submitButtonWidth/2 + buttonOffset,0,submitButtonWidth,uiButtonHeight,12)
 		submitButton:setFillColor(.9)
-		local submitButtonText = display.newText({ x = submitButton.x, y = submitButton.y, text = "submit", font = native.systemFont, fontSize = 18, align = "center" })
+		local submitButtonText = display.newText({ x = submitButton.x, y = submitButton.y, text = "submit", font = gameFont, fontSize = 18, align = "center" })
 		html5fix(submitButtonText)
 		uiGroup:insert(submitButtonText)
 		submitButtonText:setFillColor(0)
